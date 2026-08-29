@@ -96,16 +96,43 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
-          # --with-latest and --tag-rollup only fire when the ref is a real
-          # version tag, and this job runs on a branch push. The tag semver
-          # created moments earlier is the ref this build actually represents,
-          # so present it as such.
-          #
-          # GITHUB_REF is the one that matters — verified by running paws
-          # locally across both: refs/heads/main computes one tag, and
-          # refs/tags/v0.0.1 computes four (version, latest, 0.0, 0).
-          GITHUB_REF: refs/tags/${{ needs.version.outputs.version }}
-          GITHUB_REF_NAME: ${{ needs.version.outputs.version }}
+
+      # paws gates --with-latest and --tag-rollup on GITHUB_REF naming a version
+      # tag, and this job runs on a branch push. Overriding GITHUB_REF is not an
+      # option — Actions re-injects the default GITHUB_* variables, so the step
+      # declares one value and the process sees another (verified: locally that
+      # env computes four tags, in CI it still computed one).
+      #
+      # So alias them from the manifest paws just published instead. This moves
+      # no bytes: imagetools points new tags at the existing digest rather than
+      # rebuilding or re-uploading.
+      - name: alias :latest and the rollup tags
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          image="ghcr.io/${{ github.repository }}"
+
+          # A prerelease must never become :latest.
+          if [[ "$version" == *-* ]]; then
+            echo "$version is a prerelease; leaving :latest alone"
+            exit 0
+          fi
+
+          bare="${version#v}"
+          major="${bare%%.*}"
+          minor="${bare%.*}"
+
+          echo "${{ github.token }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          docker buildx imagetools create \
+            --tag "$image:latest" \
+            --tag "$image:$bare" \
+            --tag "$image:$minor" \
+            --tag "$image:$major" \
+            "$image:$version"
+
+          echo "aliased $version -> latest, $bare, $minor, $major"
 
   changelog:
     name: changelog
