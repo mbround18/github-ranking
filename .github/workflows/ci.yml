@@ -211,10 +211,16 @@ jobs:
       # credentials in production — a self-hosted instance builds its own with
       # --build-arg CARGO_FEATURES=pat-in-production.
       - name: build the image
+      # paws targets docker.io unless --registries names another, even when
+      # --image is fully qualified, and it reads the GHCR password from
+      # $GHCR_TOKEN rather than $GITHUB_TOKEN. Without both, it skips the
+      # publish and still reports success.
         run: |
           paws docker \
-            --image ghcr.io/${{ github.repository }} \
+            --image ${{ github.repository }} \
+            --registries ghcr.io \
             --ghcr-username ${{ github.actor }} \
             --tag-sha --tag-pr
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
