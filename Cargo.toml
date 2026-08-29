@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "tools/fontgen"]
+members = ["crates/auth-core", "crates/auth-pat", "crates/core", "tools/fontgen"]
 exclude = ["tools/preview"]
 
 [workspace.package]

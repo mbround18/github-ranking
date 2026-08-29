@@ -1,0 +1,10 @@
+[package]
+name = "github-ranked-auth-core"
+description = "Credential abstraction shared by every authentication provider."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+thiserror = "2"

@@ -1,0 +1,25 @@
+[package]
+name = "github-ranked-auth-pat"
+description = "Personal access token provider. Development, and single-tenant self-hosting."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+
+# Permits this provider to authenticate when APP_ENV=production.
+#
+# Off by default. The server additionally makes the whole crate an optional
+# dependency, so a stock production build does not merely disable this — it does
+# not link the provider at all.
+allow-in-production = []
+
+[dependencies]
+github-ranked-auth-core = { path = "../auth-core" }
+async-trait = "0.1"
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
