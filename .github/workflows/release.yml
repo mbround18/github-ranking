@@ -50,10 +50,18 @@ jobs:
         id: semver
         run: |
           if [ -n "${{ inputs.increment }}" ]; then
-            paws semver --increment "${{ inputs.increment }}" --push
+            version="$(paws semver --increment "${{ inputs.increment }}" --push | tail -n1)"
           else
-            paws semver --labels "${{ join(github.event.head_commit.labels, ',') }}" --push
+            version="$(paws semver --labels "${{ join(github.event.head_commit.labels, ',') }}" --push | tail -n1)"
           fi
+
+          if [ -z "$version" ]; then
+            echo "::error::paws semver produced no version"
+            exit 1
+          fi
+
+          echo "computed $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -76,15 +84,17 @@ jobs:
         run: |
           paws docker \
             --image ghcr.io/${{ github.repository }} \
+            --ghcr-username ${{ github.actor }} \
             --version "${{ needs.version.outputs.version }}" \
             --push --with-latest --tag-rollup
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GHCR_USERNAME: ${{ github.actor }}
 
   changelog:
     name: changelog
     needs: version
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -96,6 +106,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      - run: paws changelog
+      - run: paws changelog --version "${{ needs.version.outputs.version }}" --commit
         env:
           GITHUB_TOKEN: ${{ github.token }}
