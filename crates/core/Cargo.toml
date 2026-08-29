@@ -1,0 +1,12 @@
+[package]
+name = "github-ranked-core"
+description = "Ranking math and card rendering, shared by the server and the browser."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
