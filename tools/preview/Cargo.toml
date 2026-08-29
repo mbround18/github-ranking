@@ -1,0 +1,14 @@
+[package]
+name = "preview"
+description = "Renders a tier x theme contact sheet to PNG, for looking at the cards."
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+# Excluded from the workspace: resvg is a heavy dependency tree and this is only
+# ever run by hand when the card design changes.
+[workspace]
+
+[dependencies]
+github-ranked-core = { path = "../../crates/core" }
+resvg = "0.45"

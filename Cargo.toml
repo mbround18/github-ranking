@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["crates/core"]
+members = ["crates/core", "tools/fontgen"]
+exclude = ["tools/preview"]
 
 [workspace.package]
 version = "0.1.0"
