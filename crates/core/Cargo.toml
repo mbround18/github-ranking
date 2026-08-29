@@ -10,3 +10,13 @@ serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+proptest = "1"
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[[bench]]
+name = "engine"
+harness = false
+
+[[bench]]
+name = "render"
+harness = false
