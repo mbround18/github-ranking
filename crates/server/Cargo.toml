@@ -1,0 +1,50 @@
+[package]
+name = "github-ranked"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["pat-auth"]
+
+# Links the personal access token provider at all. On by default because it is
+# the development path; a deployment that uses only the GitHub App can drop it
+# with --no-default-features and the provider is then not in the binary.
+pat-auth = ["dep:github-ranked-auth-pat"]
+
+# Additionally permits that provider to authenticate when APP_ENV=production.
+#
+# Off by default, so a stock build cannot run production traffic on a PAT — no
+# environment variable, ConfigMap or Secret can turn it on. Enable it when
+# self-hosting a single-tenant instance, where the quota being spent is your own
+# and there is no OAuth surface to secure:
+#
+#     cargo build --release --features pat-in-production
+#
+# A public multi-tenant deployment should use the GitHub App instead.
+pat-in-production = ["pat-auth", "github-ranked-auth-pat/allow-in-production"]
+
+[dependencies]
+github-ranked-core.workspace = true
+github-ranked-auth-core = { path = "../auth-core" }
+github-ranked-auth-pat = { path = "../auth-pat", optional = true }
+async-trait = "0.1"
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+tower = { version = "0.5", features = ["limit", "util", "buffer"] }
+tower-http = { version = "0.6", features = [
+    "cors", "compression-gzip", "compression-br", "trace", "fs",
+    "set-header", "timeout", "catch-panic", "normalize-path", "sensitive-headers",
+] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+moka = { version = "0.12", features = ["future"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+time = { version = "0.3", features = ["formatting", "macros"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
