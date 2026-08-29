@@ -25,20 +25,28 @@ A rewrite of [Shemarhn/Github_Ranked](https://github.com/Shemarhn/Github_Ranked)
 ## Running it
 
 ```sh
-# 1. The wasm bundle the frontend imports (regenerate whenever core changes)
-./crates/wasm/build.sh
-
-# 2. The frontend
-cd web && npm install && npm run build && cd ..
-
-# 3. The service
-GITHUB_TOKEN=ghp_... WEB_ROOT=./web/dist cargo run --release -p github-ranked
+make dev
 ```
 
-Then <http://localhost:10090>.
+That builds the wasm bundle, installs frontend dependencies if needed, and runs
+the API on **10090** alongside the Vite dev server on **10173** — open the
+latter. Both stop together on Ctrl-C.
 
-For frontend work, `cd web && npm run dev` serves on **10173** and proxies
-`/api` to the service on **10090**.
+Credentials are resolved from `gh auth token` first, falling back to
+`GITHUB_TOKEN` in the environment. `make token` reports which one it found
+without printing it.
+
+`make` on its own lists every target. The ones worth knowing:
+
+| | |
+| --- | --- |
+| `make dev` | API + frontend dev server, hot reloading |
+| `make serve` | build everything, run the single binary as production does |
+| `make test` | Rust tests and Playwright |
+| `make check` | fmt, clippy and TypeScript |
+| `make bench` | criterion benchmarks |
+| `make docker-selfhost` | image that accepts a PAT in production |
+| `make preview` | render a tier × theme contact sheet to look at |
 
 > Ports are in the 10k range deliberately, and **10090 rather than 10080**:
 > browsers refuse to connect to 10080 (`ERR_UNSAFE_PORT`), which is the only
@@ -61,9 +69,9 @@ no OAuth surface. See [`docs/deployment.md`](docs/deployment.md).
 ## Testing
 
 ```sh
-cargo test                       # 139 tests: golden ranks, properties, HTTP
-cargo bench -p github-ranked-core -- --quick
-cd e2e && npx playwright test    # 37 tests, no GitHub token or network needed
+make test          # 139 Rust tests plus 37 Playwright
+make test-features # every cargo feature combination
+make bench
 ```
 
 Three layers, deliberately:

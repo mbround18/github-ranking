@@ -5,6 +5,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+# The default libtest harness would otherwise be benched alongside the criterion
+# targets, and it rejects criterion's flags.
+[lib]
+bench = false
+
 [dependencies]
 serde.workspace = true
 
