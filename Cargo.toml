@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/auth-core", "crates/auth-pat", "crates/core", "crates/server", "tools/fontgen"]
+members = ["crates/auth-core", "crates/auth-pat", "crates/core", "crates/server", "crates/wasm", "tools/fontgen"]
 exclude = ["tools/preview"]
 
 [workspace.package]
@@ -12,3 +12,13 @@ license = "MIT"
 github-ranked-core = { path = "crates/core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Small, fast wasm. The frontend ships this on every page load.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.release.package.github-ranked-wasm]
+opt-level = "z"
