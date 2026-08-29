@@ -1,0 +1,13 @@
+# Durable cache. ReadWriteOnce is correct and load-bearing: SQLite is
+# single-writer, and this volume must never be shared between pods.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: github-ranked-cache
+  namespace: github-ranked
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

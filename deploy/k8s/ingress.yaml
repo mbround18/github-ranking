@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: github-ranked
+  namespace: github-ranked
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Badges are hotlinked from README files all over GitHub; cache them at the
+    # edge so the origin only sees misses.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rank.example.com
+      secretName: github-ranked-tls
+  rules:
+    - host: rank.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: github-ranked
+                port:
+                  name: http

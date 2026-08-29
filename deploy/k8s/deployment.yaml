@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-ranked
+  namespace: github-ranked
+  labels:
+    app.kubernetes.io/name: github-ranked
+spec:
+  # One replica by design. There is no shared cache, and the durable layer is
+  # SQLite on a ReadWriteOnce volume — a second pod could not attach it anyway.
+  # See docs/deployment.md before scaling this up.
+  replicas: 1
+  strategy:
+    # Recreate, not RollingUpdate: two pods cannot hold the same RWO volume, so
+    # a rolling update would deadlock waiting for the new pod to attach.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: github-ranked
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: github-ranked
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "10090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Long enough for in-flight renders to finish after SIGTERM; must exceed
+      # REQUEST_TIMEOUT_SECS or Kubernetes SIGKILLs mid-request.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          # A stock image serves production traffic only with GitHub App
+          # credentials. For a single-tenant instance build with
+          # --build-arg CARGO_FEATURES=pat-in-production and use that tag.
+          image: ghcr.io/shemarhn/github-ranked:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 10090
+          envFrom:
+            - configMapRef:
+                name: github-ranked-config
+            - secretRef:
+                name: github-ranked-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Generous failureThreshold so a slow first boot is tolerated without
+          # loosening the liveness deadline for the rest of the pod's life.
+          startupProbe:
+            httpGet:
+              path: /startupz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          # Restarts the pod. Depends on nothing external, so it only fires when
+          # the process itself is wedged.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Removes the pod from the Service. Fails when GitHub quota is
+          # exhausted — a restart could not fix that and would discard a warm
+          # cache, so it must not be wired to liveness.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              # No CPU limit: throttling a latency-sensitive renderer is worse
+              # than letting it burst. Memory is capped because the in-process
+              # cache is the only thing that grows.
+              memory: 512Mi
+          volumeMounts:
+            - name: cache
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: github-ranked-cache
+        # readOnlyRootFilesystem is on, and SQLite needs somewhere for temp
+        # files.
+        - name: tmp
+          emptyDir: {}

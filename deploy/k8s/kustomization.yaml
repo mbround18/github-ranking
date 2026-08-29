@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: github-ranked
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - poddisruptionbudget.yaml
+  # secret.example.yaml is deliberately not listed: create the real secret out
+  # of band so credentials never live in git.
+
+# `labels` rather than the deprecated `commonLabels`. Selectors are left alone
+# deliberately: a Deployment's selector is immutable, so injecting labels into
+# it would break any future relabelling on an existing cluster.
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/name: github-ranked
+      app.kubernetes.io/component: server

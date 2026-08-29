@@ -1,0 +1,13 @@
+# With a single replica this cannot prevent voluntary disruption outright, but
+# it makes a drain surface the tradeoff rather than silently taking the service
+# down. Raise minAvailable only if you also move off the RWO volume.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: github-ranked
+  namespace: github-ranked
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: github-ranked
