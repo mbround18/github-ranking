@@ -97,9 +97,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
           # --with-latest and --tag-rollup only fire when the ref is a real
-          # version tag, and this job runs on a branch push, so GITHUB_REF_NAME
-          # would be "main". The tag semver just created is the ref this build
-          # actually represents; paws reads it from the environment.
+          # version tag, and this job runs on a branch push. The tag semver
+          # created moments earlier is the ref this build actually represents,
+          # so present it as such.
+          #
+          # GITHUB_REF is the one that matters — verified by running paws
+          # locally across both: refs/heads/main computes one tag, and
+          # refs/tags/v0.0.1 computes four (version, latest, 0.0, 0).
+          GITHUB_REF: refs/tags/${{ needs.version.outputs.version }}
           GITHUB_REF_NAME: ${{ needs.version.outputs.version }}
 
   changelog:
