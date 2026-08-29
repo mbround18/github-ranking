@@ -5,14 +5,14 @@
 //! dropped: it was buying a layout engine for a layout that never changes size.
 
 use super::icons::tier_icon;
-use super::text::{measure, text_svg, Anchor, Weight};
+use super::text::{Anchor, TextStyle, Weight, measure, text_svg};
 use super::theme::{
-    ensure_contrast, palette, readable_tier_color, Palette, CONTRAST_BODY, STAT_COLORS,
+    CONTRAST_BODY, Palette, STAT_COLORS, ensure_contrast, palette, readable_tier_color,
 };
-use crate::ranking::constants::tier_colors;
-use crate::ranking::RankResult;
-use crate::validation::Theme;
 use crate::AggregatedStats;
+use crate::ranking::RankResult;
+use crate::ranking::constants::tier_colors;
+use crate::validation::Theme;
 
 pub const CARD_WIDTH: f64 = 495.0;
 pub const CARD_HEIGHT: f64 = 170.0;
@@ -96,17 +96,13 @@ pub fn thousands(value: f64) -> String {
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
 
     for (index, ch) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index) % 3 == 0 {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
             out.push(',');
         }
         out.push(ch);
     }
 
-    if value < 0.0 {
-        format!("-{out}")
-    } else {
-        out
-    }
+    if value < 0.0 { format!("-{out}") } else { out }
 }
 
 /// Escape text destined for an XML text node or attribute.
@@ -159,7 +155,13 @@ pub fn render_card(input: &CardInput<'_>) -> String {
     svg.push_str(&defs(&ns, &palette, gradient));
     svg.push_str(&background(&ns, &palette));
     svg.push_str(&header(input, &palette, gradient[0]));
-    svg.push_str(&tier_icon(input.rank.tier, &ns, PADDING, main_top() + (main_height() - ICON_SIZE) / 2.0, ICON_SIZE));
+    svg.push_str(&tier_icon(
+        input.rank.tier,
+        &ns,
+        PADDING,
+        main_top() + (main_height() - ICON_SIZE) / 2.0,
+        ICON_SIZE,
+    ));
     // Tier accents are tuned for dark surfaces; swap in a darker stop where
     // the theme would otherwise render the label illegible.
     let label_color = readable_tier_color(palette.background_primary, accent, gradient);
@@ -212,8 +214,16 @@ fn header(input: &CardInput<'_>, palette: &Palette, tier_color: &str) -> String 
     const BRAND_SPACING: f64 = 0.05;
 
     out.push_str(&text_svg(
-        BRAND, PADDING, baseline(center, BRAND_SIZE), BRAND_SIZE,
-        Weight::Regular, palette.text_secondary, BRAND_SPACING, Anchor::Start,
+        BRAND,
+        PADDING,
+        baseline(center, BRAND_SIZE),
+        &TextStyle {
+            size: BRAND_SIZE,
+            weight: Weight::Regular,
+            fill: palette.text_secondary,
+            letter_spacing: BRAND_SPACING,
+            anchor: Anchor::Start,
+        },
     ));
 
     // Season pill, sitting just after the wordmark.
@@ -235,16 +245,32 @@ fn header(input: &CardInput<'_>, palette: &Palette, tier_color: &str) -> String 
     // against the card itself — close enough, and it keeps the label readable.
     let pill_text = ensure_contrast(palette.background_primary, tier_color, CONTRAST_BODY);
     out.push_str(&text_svg(
-        &season_label, pill_x + 6.0, baseline(center, season_size), season_size,
-        Weight::Bold, &pill_text, 0.0, Anchor::Start,
+        &season_label,
+        pill_x + 6.0,
+        baseline(center, season_size),
+        &TextStyle {
+            size: season_size,
+            weight: Weight::Bold,
+            fill: &pill_text,
+            letter_spacing: 0.0,
+            anchor: Anchor::Start,
+        },
     ));
 
     // Handle, right-aligned.
     let handle = format!("@{}", input.username);
     let handle_size = fit_size(&handle, 13.0, Weight::Bold, 0.0, 160.0);
     out.push_str(&text_svg(
-        &handle, CARD_WIDTH - PADDING, baseline(center, handle_size), handle_size,
-        Weight::Bold, palette.text_primary, 0.0, Anchor::End,
+        &handle,
+        CARD_WIDTH - PADDING,
+        baseline(center, handle_size),
+        &TextStyle {
+            size: handle_size,
+            weight: Weight::Bold,
+            fill: palette.text_primary,
+            letter_spacing: 0.0,
+            anchor: Anchor::End,
+        },
     ));
 
     out
@@ -274,26 +300,44 @@ fn rank_block(
     let upper = label.to_uppercase();
     let tier_size = fit_size(&upper, TIER_SIZE, Weight::Bold, -0.02, available);
     out.push_str(&text_svg(
-        &upper, x, baseline(top + TIER_SIZE / 2.0, tier_size), tier_size,
-        Weight::Bold, accent, -0.02, Anchor::Start,
+        &upper,
+        x,
+        baseline(top + TIER_SIZE / 2.0, tier_size),
+        &TextStyle {
+            size: tier_size,
+            weight: Weight::Bold,
+            fill: accent,
+            letter_spacing: -0.02,
+            anchor: Anchor::Start,
+        },
     ));
 
     // Rating, with its unit label on the same baseline.
     let rating_center = top + TIER_SIZE + GAP + RATING_SIZE / 2.0;
     let elo = thousands(input.rank.elo as f64);
     out.push_str(&text_svg(
-        &elo, x, baseline(rating_center, RATING_SIZE), RATING_SIZE,
-        Weight::Bold, palette.text_primary, 0.0, Anchor::Start,
+        &elo,
+        x,
+        baseline(rating_center, RATING_SIZE),
+        &TextStyle {
+            size: RATING_SIZE,
+            weight: Weight::Bold,
+            fill: palette.text_primary,
+            letter_spacing: 0.0,
+            anchor: Anchor::Start,
+        },
     ));
     out.push_str(&text_svg(
         "Rating",
         x + measure(&elo, RATING_SIZE, Weight::Bold, 0.0) + 6.0,
         baseline(rating_center, RATING_SIZE),
-        13.0,
-        Weight::Regular,
-        palette.text_secondary,
-        0.0,
-        Anchor::Start,
+        &TextStyle {
+            size: 13.0,
+            weight: Weight::Regular,
+            fill: palette.text_secondary,
+            letter_spacing: 0.0,
+            anchor: Anchor::Start,
+        },
     ));
 
     // Progress through the division. Undivided tiers have no GP, so the bar is
@@ -347,8 +391,16 @@ fn stats_panel(input: &CardInput<'_>, palette: &Palette) -> String {
         let center = first_center + index as f64 * (STAT_ROW_HEIGHT + STAT_ROW_GAP);
 
         out.push_str(&text_svg(
-            label, x + PANEL_PADDING, baseline(center, 12.0), 12.0,
-            Weight::Regular, palette.text_secondary, 0.0, Anchor::Start,
+            label,
+            x + PANEL_PADDING,
+            baseline(center, 12.0),
+            &TextStyle {
+                size: 12.0,
+                weight: Weight::Regular,
+                fill: palette.text_secondary,
+                letter_spacing: 0.0,
+                anchor: Anchor::Start,
+            },
         ));
         // Right-aligned so any magnitude fits without reflowing the panel.
         // Stat accents are tuned for dark cards; darken them on light themes
@@ -362,11 +414,13 @@ fn stats_panel(input: &CardInput<'_>, palette: &Palette) -> String {
             &thousands(*value),
             x + PANEL_WIDTH - PANEL_PADDING,
             baseline(center, 13.0),
-            13.0,
-            Weight::Bold,
-            &value_color,
-            0.0,
-            Anchor::End,
+            &TextStyle {
+                size: 13.0,
+                weight: Weight::Bold,
+                fill: &value_color,
+                letter_spacing: 0.0,
+                anchor: Anchor::End,
+            },
         ));
     }
 
@@ -385,7 +439,7 @@ fn round(value: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ranking::{calculate_rank, Division, Tier};
+    use crate::ranking::{Division, Tier, calculate_rank};
 
     fn sample() -> (RankResult, AggregatedStats) {
         let stats = AggregatedStats {
@@ -430,14 +484,20 @@ mod tests {
         assert_eq!(svg.matches("<svg").count(), 1);
         assert_eq!(svg.matches("</svg>").count(), 1);
         assert_eq!(svg.matches("<g ").count(), svg.matches("</g>").count());
-        assert_eq!(svg.matches("<defs>").count(), svg.matches("</defs>").count());
+        assert_eq!(
+            svg.matches("<defs>").count(),
+            svg.matches("</defs>").count()
+        );
     }
 
     #[test]
     fn every_theme_renders() {
         for theme in Theme::ALL {
             let svg = render(theme);
-            assert!(svg.len() > 2_000, "{theme} produced a suspiciously small card");
+            assert!(
+                svg.len() > 2_000,
+                "{theme} produced a suspiciously small card"
+            );
             assert!(!svg.contains("{NS}"), "{theme} leaked a placeholder");
         }
     }
@@ -462,8 +522,12 @@ mod tests {
             };
             let stats = AggregatedStats::default();
             let svg = render_card(&CardInput {
-                username: "octocat", rank: &rank, stats: &stats,
-                theme: Theme::Default, season: None, current_year: 2026,
+                username: "octocat",
+                rank: &rank,
+                stats: &stats,
+                theme: Theme::Default,
+                season: None,
+                current_year: 2026,
             });
             assert!(svg.contains("</svg>"), "{tier} failed to render");
         }
@@ -472,13 +536,22 @@ mod tests {
     #[test]
     fn undivided_tiers_show_a_full_bar_not_an_empty_one() {
         let master = RankResult {
-            tier: Tier::Master, division: None, elo: 2500, gp: 0,
-            percentile: 99.0, wpi: 1.0, z_score: 3.0,
+            tier: Tier::Master,
+            division: None,
+            elo: 2500,
+            gp: 0,
+            percentile: 99.0,
+            wpi: 1.0,
+            z_score: 3.0,
         };
         let stats = AggregatedStats::default();
         let svg = render_card(&CardInput {
-            username: "octocat", rank: &master, stats: &stats,
-            theme: Theme::Default, season: None, current_year: 2026,
+            username: "octocat",
+            rank: &master,
+            stats: &stats,
+            theme: Theme::Default,
+            season: None,
+            current_year: 2026,
         });
         // The filled bar is drawn at the same width as the track.
         assert_eq!(svg.matches(r#"height="6" rx="3""#).count(), 2);
@@ -486,8 +559,8 @@ mod tests {
 
     #[test]
     fn long_tier_names_are_scaled_to_fit() {
-        let available = CARD_WIDTH - PADDING - PANEL_WIDTH - COLUMN_GAP
-            - (PADDING + ICON_SIZE + COLUMN_GAP);
+        let available =
+            CARD_WIDTH - PADDING - PANEL_WIDTH - COLUMN_GAP - (PADDING + ICON_SIZE + COLUMN_GAP);
 
         for label in ["GRANDMASTER", "CHALLENGER", "PLATINUM IV", "IRON IV"] {
             let size = fit_size(label, 28.0, Weight::Bold, -0.02, available);
@@ -500,8 +573,12 @@ mod tests {
     fn usernames_are_escaped_in_the_accessible_title() {
         let (rank, stats) = sample();
         let svg = render_card(&CardInput {
-            username: "a<b>&\"c", rank: &rank, stats: &stats,
-            theme: Theme::Default, season: None, current_year: 2026,
+            username: "a<b>&\"c",
+            rank: &rank,
+            stats: &stats,
+            theme: Theme::Default,
+            season: None,
+            current_year: 2026,
         });
 
         assert!(svg.contains("a&lt;b&gt;&amp;&quot;c"));
@@ -514,13 +591,20 @@ mod tests {
     #[test]
     fn same_tier_different_theme_gets_distinct_gradient_ids() {
         let (rank, stats) = sample();
-        let card = |theme| render_card(&CardInput {
-            username: "octocat", rank: &rank, stats: &stats,
-            theme, season: None, current_year: 2026,
-        });
+        let card = |theme| {
+            render_card(&CardInput {
+                username: "octocat",
+                rank: &rank,
+                stats: &stats,
+                theme,
+                season: None,
+                current_year: 2026,
+            })
+        };
 
         let ids = |svg: &str| {
-            svg.split(r#"<linearGradient id=""#).skip(1)
+            svg.split(r#"<linearGradient id=""#)
+                .skip(1)
                 .map(|s| s.split('"').next().unwrap().to_string())
                 .collect::<Vec<_>>()
         };
@@ -537,24 +621,43 @@ mod tests {
     #[test]
     fn identical_cards_produce_identical_ids() {
         let (rank, stats) = sample();
-        let card = || render_card(&CardInput {
-            username: "octocat", rank: &rank, stats: &stats,
-            theme: Theme::Default, season: None, current_year: 2026,
-        });
+        let card = || {
+            render_card(&CardInput {
+                username: "octocat",
+                rank: &rank,
+                stats: &stats,
+                theme: Theme::Default,
+                season: None,
+                current_year: 2026,
+            })
+        };
         assert_eq!(card(), card(), "rendering must be deterministic");
     }
 
     #[test]
     fn different_users_get_distinct_ids() {
         let (rank, stats) = sample();
-        let card = |username| render_card(&CardInput {
-            username, rank: &rank, stats: &stats,
-            theme: Theme::Default, season: None, current_year: 2026,
-        });
+        let card = |username| {
+            render_card(&CardInput {
+                username,
+                rank: &rank,
+                stats: &stats,
+                theme: Theme::Default,
+                season: None,
+                current_year: 2026,
+            })
+        };
         let a = card("octocat");
         let b = card("torvalds");
-        let first_id = |svg: &str| svg.split(r#"<linearGradient id=""#).nth(1)
-            .unwrap().split('"').next().unwrap().to_string();
+        let first_id = |svg: &str| {
+            svg.split(r#"<linearGradient id=""#)
+                .nth(1)
+                .unwrap()
+                .split('"')
+                .next()
+                .unwrap()
+                .to_string()
+        };
         assert_ne!(first_id(&a), first_id(&b));
     }
 
@@ -562,8 +665,12 @@ mod tests {
     fn season_label_defaults_to_the_current_year() {
         let (rank, stats) = sample();
         let input = |season| CardInput {
-            username: "octocat", rank: &rank, stats: &stats,
-            theme: Theme::Default, season, current_year: 2026,
+            username: "octocat",
+            rank: &rank,
+            stats: &stats,
+            theme: Theme::Default,
+            season,
+            current_year: 2026,
         };
         // Rendered as outlines, so assert via the measured pill instead.
         assert_ne!(render_card(&input(None)), render_card(&input(Some(2024))));

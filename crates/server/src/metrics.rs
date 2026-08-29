@@ -100,8 +100,12 @@ impl Metrics {
         let get = |counter: &AtomicU64| counter.load(Ordering::Relaxed);
         let mut out = String::with_capacity(2048);
 
-        counter(&mut out, "github_ranked_requests_total",
-            "Total HTTP requests received.", get(&self.requests_total));
+        counter(
+            &mut out,
+            "github_ranked_requests_total",
+            "Total HTTP requests received.",
+            get(&self.requests_total),
+        );
 
         out.push_str("# HELP github_ranked_responses_total HTTP responses by status class.\n");
         out.push_str("# TYPE github_ranked_responses_total counter\n");
@@ -115,23 +119,55 @@ impl Metrics {
             ));
         }
 
-        counter(&mut out, "github_ranked_cache_hits_total",
-            "Rank lookups served from cache.", get(&self.cache_hits));
-        counter(&mut out, "github_ranked_cache_misses_total",
-            "Rank lookups that required a fetch.", get(&self.cache_misses));
-        counter(&mut out, "github_ranked_github_requests_total",
-            "GraphQL requests sent to GitHub.", get(&self.github_requests));
-        counter(&mut out, "github_ranked_github_errors_total",
-            "GitHub requests that failed.", get(&self.github_errors));
-        counter(&mut out, "github_ranked_github_rate_limited_total",
-            "GitHub requests rejected for rate limiting.", get(&self.github_rate_limited));
-        counter(&mut out, "github_ranked_cards_rendered_total",
-            "Badge cards rendered.", get(&self.cards_rendered));
+        counter(
+            &mut out,
+            "github_ranked_cache_hits_total",
+            "Rank lookups served from cache.",
+            get(&self.cache_hits),
+        );
+        counter(
+            &mut out,
+            "github_ranked_cache_misses_total",
+            "Rank lookups that required a fetch.",
+            get(&self.cache_misses),
+        );
+        counter(
+            &mut out,
+            "github_ranked_github_requests_total",
+            "GraphQL requests sent to GitHub.",
+            get(&self.github_requests),
+        );
+        counter(
+            &mut out,
+            "github_ranked_github_errors_total",
+            "GitHub requests that failed.",
+            get(&self.github_errors),
+        );
+        counter(
+            &mut out,
+            "github_ranked_github_rate_limited_total",
+            "GitHub requests rejected for rate limiting.",
+            get(&self.github_rate_limited),
+        );
+        counter(
+            &mut out,
+            "github_ranked_cards_rendered_total",
+            "Badge cards rendered.",
+            get(&self.cards_rendered),
+        );
 
-        gauge(&mut out, "github_ranked_credentials_available",
-            "Credentials with quota remaining.", credentials_available as f64);
-        gauge(&mut out, "github_ranked_cache_entries",
-            "Entries held in the in-memory cache.", cache_entries as f64);
+        gauge(
+            &mut out,
+            "github_ranked_credentials_available",
+            "Credentials with quota remaining.",
+            credentials_available as f64,
+        );
+        gauge(
+            &mut out,
+            "github_ranked_cache_entries",
+            "Entries held in the in-memory cache.",
+            cache_entries as f64,
+        );
 
         out.push_str("# HELP github_ranked_request_duration_seconds Request latency.\n");
         out.push_str("# TYPE github_ranked_request_duration_seconds histogram\n");
@@ -158,11 +194,15 @@ impl Metrics {
 }
 
 fn counter(out: &mut String, name: &str, help: &str, value: u64) {
-    out.push_str(&format!("# HELP {name} {help}\n# TYPE {name} counter\n{name} {value}\n"));
+    out.push_str(&format!(
+        "# HELP {name} {help}\n# TYPE {name} counter\n{name} {value}\n"
+    ));
 }
 
 fn gauge(out: &mut String, name: &str, help: &str, value: f64) {
-    out.push_str(&format!("# HELP {name} {help}\n# TYPE {name} gauge\n{name} {value}\n"));
+    out.push_str(&format!(
+        "# HELP {name} {help}\n# TYPE {name} gauge\n{name} {value}\n"
+    ));
 }
 
 #[cfg(test)]

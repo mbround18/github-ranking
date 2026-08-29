@@ -80,7 +80,10 @@ pub struct Credential {
 
 impl Credential {
     pub fn new(id: CredentialId, token: impl Into<String>) -> Self {
-        Self { id, token: token.into() }
+        Self {
+            id,
+            token: token.into(),
+        }
     }
 
     /// The secret itself. Only an HTTP client should call this.
@@ -155,12 +158,18 @@ mod tests {
     #[test]
     fn a_credential_never_prints_its_token() {
         let credential = Credential::new(
-            CredentialId { kind: CredentialKind::Pat, index: 3 },
+            CredentialId {
+                kind: CredentialKind::Pat,
+                index: 3,
+            },
             "ghp_supersecretvalue",
         );
 
         let rendered = format!("{credential:?}");
-        assert!(!rendered.contains("supersecret"), "token leaked: {rendered}");
+        assert!(
+            !rendered.contains("supersecret"),
+            "token leaked: {rendered}"
+        );
         assert!(rendered.contains("<redacted>"));
         // The id is safe and useful, so it should still be there. Derived
         // `Debug` prints the variant name, not `as_str`.
@@ -171,7 +180,10 @@ mod tests {
     #[test]
     fn the_token_is_still_reachable_deliberately() {
         let credential = Credential::new(
-            CredentialId { kind: CredentialKind::User, index: 0 },
+            CredentialId {
+                kind: CredentialKind::User,
+                index: 0,
+            },
             "gho_value",
         );
         assert_eq!(credential.expose(), "gho_value");
@@ -179,7 +191,10 @@ mod tests {
 
     #[test]
     fn credential_ids_render_for_logs() {
-        let id = CredentialId { kind: CredentialKind::Installation, index: 7 };
+        let id = CredentialId {
+            kind: CredentialKind::Installation,
+            index: 7,
+        };
         assert_eq!(id.to_string(), "installation#7");
     }
 

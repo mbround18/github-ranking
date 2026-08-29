@@ -6,9 +6,9 @@
 use crate::auth::{AuthProvider, RateLimitStatus};
 use crate::error::{ApiError, ApiResult};
 use crate::metrics::Metrics;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -81,18 +81,18 @@ impl GitHubClient {
             .build()
             .map_err(|e| ApiError::Internal(format!("building HTTP client: {e}")))?;
 
-        Ok(Self { http, auth, metrics })
+        Ok(Self {
+            http,
+            auth,
+            metrics,
+        })
     }
 
     /// Run a GraphQL query and deserialize `data` into `T`.
     ///
     /// Retries transient failures with backoff. Rate-limit and not-found
     /// responses are returned immediately — they are answers, not failures.
-    pub async fn query<T: DeserializeOwned>(
-        &self,
-        query: &str,
-        variables: Value,
-    ) -> ApiResult<T> {
+    pub async fn query<T: DeserializeOwned>(&self, query: &str, variables: Value) -> ApiResult<T> {
         let body = json!({ "query": query, "variables": variables });
         let mut last_error = None;
 
@@ -105,11 +105,11 @@ impl GitHubClient {
                 Ok(data) => {
                     return serde_json::from_value(data).map_err(|e| {
                         ApiError::github(format!("unexpected response shape from GitHub: {e}"))
-                    })
+                    });
                 }
                 // A definitive answer — retrying cannot change it.
                 Err(error @ (ApiError::UserNotFound { .. } | ApiError::RateLimit { .. })) => {
-                    return Err(error)
+                    return Err(error);
                 }
                 Err(error) => {
                     tracing::warn!(attempt = attempt + 1, %error, "GitHub query failed");
@@ -118,8 +118,7 @@ impl GitHubClient {
             }
         }
 
-        Err(last_error
-            .unwrap_or_else(|| ApiError::github("GitHub query failed after retries")))
+        Err(last_error.unwrap_or_else(|| ApiError::github("GitHub query failed after retries")))
     }
 
     /// One request/response cycle.
@@ -266,12 +265,21 @@ mod tests {
     #[test]
     fn parses_github_reset_timestamps() {
         assert_eq!(parse_rfc3339_epoch("1970-01-01T00:00:00Z"), Some(0));
-        assert_eq!(parse_rfc3339_epoch("2026-08-28T15:04:05Z"), Some(1787929445));
+        assert_eq!(
+            parse_rfc3339_epoch("2026-08-28T15:04:05Z"),
+            Some(1787929445)
+        );
         // Leap day, and a leap-year boundary.
-        assert_eq!(parse_rfc3339_epoch("2024-02-29T00:00:00Z"), Some(1709164800));
+        assert_eq!(
+            parse_rfc3339_epoch("2024-02-29T00:00:00Z"),
+            Some(1709164800)
+        );
         assert_eq!(parse_rfc3339_epoch("2000-03-01T00:00:00Z"), Some(951868800));
         // Past the 32-bit cliff, since these are reset times in the future.
-        assert_eq!(parse_rfc3339_epoch("2038-01-19T03:14:07Z"), Some(2147483647));
+        assert_eq!(
+            parse_rfc3339_epoch("2038-01-19T03:14:07Z"),
+            Some(2147483647)
+        );
     }
 
     #[test]

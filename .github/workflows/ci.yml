@@ -1,0 +1,206 @@
+# CI, built on paws (https://github.com/mbround18/paws).
+#
+# paws drives the single-ecosystem work — Rust build/test/coverage, the Vite
+# frontend, and the container image. The e2e job runs natively instead, because
+# it needs artefacts from both ecosystems in one place plus a running binary,
+# which is not what a per-toolchain pipeline is for.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      # fmt, clippy, build and test across the workspace, plus a coverage
+      # summary from cargo-llvm-cov.
+      - run: paws ci --toolchain rust --coverage
+
+  features:
+    name: feature combinations
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The stock production build: the PAT provider is not linked at all.
+          - name: stock
+            flags: --no-default-features
+          - name: default
+            flags: ""
+          # Single-tenant self-hosting, where a PAT may authenticate.
+          - name: self-host
+            flags: --features pat-in-production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: features-${{ matrix.name }}
+
+      # Guards the security property the crate split exists for: a stock build
+      # must be incapable of authenticating with a PAT in production, and the
+      # assertions invert per configuration.
+      - name: test (${{ matrix.name }})
+        run: cargo test -p github-ranked ${{ matrix.flags }}
+
+      - name: the stock build must not link the PAT provider
+        if: matrix.name == 'stock'
+        run: |
+          if cargo tree -p github-ranked --no-default-features -e normal | grep -q auth-pat; then
+            echo "::error::auth-pat is linked into a build that must not contain it"
+            exit 1
+          fi
+          echo "confirmed: auth-pat absent from the stock dependency graph"
+
+  web:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm
+
+      - uses: jetli/wasm-pack-action@v0.4.0
+
+      # The frontend imports the wasm bundle, which is generated rather than
+      # committed — so it has to exist before the Vite build runs.
+      - name: build the wasm bundle
+        run: ./crates/wasm/build.sh
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      - name: build and test the frontend
+        working-directory: web
+        run: paws ci --toolchain node
+
+  e2e:
+    name: end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e
+
+      - uses: jetli/wasm-pack-action@v0.4.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            e2e/package-lock.json
+
+      - name: build the wasm bundle and frontend
+        run: |
+          ./crates/wasm/build.sh
+          npm --prefix web ci
+          npm --prefix web run build
+
+      - name: build the server
+        run: cargo build --release -p github-ranked
+
+      - name: install playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      # Hermetic: fixtures are seeded straight into the SQLite cache, so no
+      # GitHub token or network access is needed.
+      - name: run playwright
+        working-directory: e2e
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+  manifests:
+    name: kubernetes manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: render and validate
+        run: kubectl kustomize deploy/k8s | kubectl apply --dry-run=client -f -
+
+      # The Secret template must stay a template. A real credential committed
+      # here would be published the moment it merged.
+      - name: the secret template must hold no real credential
+        run: |
+          if grep -qE 'gh[pousr]_[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY' \
+             deploy/k8s/secret.example.yaml; then
+            echo "::error::deploy/k8s/secret.example.yaml contains a real credential"
+            exit 1
+          fi
+          echo "confirmed: template only"
+
+  docker:
+    name: container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      # Builds on every run; pushes only on a push to main or a tag. The image
+      # published here is the stock build, so it accepts only GitHub App
+      # credentials in production — a self-hosted instance builds its own with
+      # --build-arg CARGO_FEATURES=pat-in-production.
+      - name: build the image
+        run: paws docker --image ghcr.io/${{ github.repository }} --tag-sha --tag-pr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}

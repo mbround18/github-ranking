@@ -146,8 +146,7 @@ pub fn is_valid_username(username: &str) -> bool {
     }
 
     // GitHub itself also rejects consecutive hyphens.
-    bytes.windows(2).all(|w| w != b"--")
-        && bytes.iter().all(|&b| alnum(b) || b == b'-')
+    bytes.windows(2).all(|w| w != b"--") && bytes.iter().all(|&b| alnum(b) || b == b'-')
 }
 
 pub fn validate_username(username: &str) -> ValidationResult<()> {
@@ -195,14 +194,31 @@ mod tests {
 
     #[test]
     fn accepts_real_github_usernames() {
-        for name in ["a", "octocat", "Shemarhn", "torvalds", "a-b-c", "user123", &"a".repeat(39)] {
+        for name in [
+            "a",
+            "octocat",
+            "Shemarhn",
+            "torvalds",
+            "a-b-c",
+            "user123",
+            &"a".repeat(39),
+        ] {
             assert!(is_valid_username(name), "{name} should be valid");
         }
     }
 
     #[test]
     fn rejects_malformed_usernames() {
-        for name in ["", "-lead", "trail-", "a--b", "has space", "has_underscore", "dot.dot", &"a".repeat(40)] {
+        for name in [
+            "",
+            "-lead",
+            "trail-",
+            "a--b",
+            "has space",
+            "has_underscore",
+            "dot.dot",
+            &"a".repeat(40),
+        ] {
             assert!(!is_valid_username(name), "{name:?} should be rejected");
         }
     }

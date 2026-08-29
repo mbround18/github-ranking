@@ -6,10 +6,10 @@
 //! restarting would not help and would throw away a warm cache.
 
 use crate::state::AppState;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use serde_json::json;
 
 /// Liveness: the process is up and serving. Never depends on anything external.

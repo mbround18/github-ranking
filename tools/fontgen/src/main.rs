@@ -60,7 +60,10 @@ impl ttf_parser::OutlineBuilder for PathBuilder {
         let _ = write!(
             self.path,
             "Q{} {} {} {}",
-            self.x(x1), self.y(y1), self.x(x), self.y(y)
+            self.x(x1),
+            self.y(y1),
+            self.x(x),
+            self.y(y)
         );
     }
 
@@ -68,7 +71,12 @@ impl ttf_parser::OutlineBuilder for PathBuilder {
         let _ = write!(
             self.path,
             "C{} {} {} {} {} {}",
-            self.x(x1), self.y(y1), self.x(x2), self.y(y2), self.x(x), self.y(y)
+            self.x(x1),
+            self.y(y1),
+            self.x(x2),
+            self.y(y2),
+            self.x(x),
+            self.y(y)
         );
     }
 

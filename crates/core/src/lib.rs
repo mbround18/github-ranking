@@ -13,5 +13,5 @@ pub mod ranking;
 pub mod render;
 pub mod validation;
 
-pub use ranking::{calculate_rank, AggregatedStats, Division, RankResult, Tier};
-pub use validation::{parse_season, parse_theme, validate_username, Theme, ValidationError};
+pub use ranking::{AggregatedStats, Division, RankResult, Tier, calculate_rank};
+pub use validation::{Theme, ValidationError, parse_season, parse_theme, validate_username};

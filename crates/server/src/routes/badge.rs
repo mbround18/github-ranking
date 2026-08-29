@@ -4,13 +4,13 @@ use crate::cache::{TTL_DEFAULT, TTL_NOT_FOUND};
 use crate::config::current_year;
 use crate::error::{ApiError, ApiResult};
 use crate::routes::request_id::RequestId;
-use crate::service::{rank_user, CacheOutcome};
+use crate::service::{CacheOutcome, rank_user};
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
-use github_ranked_core::render::card::{render_card, CardInput};
+use github_ranked_core::render::card::{CardInput, render_card};
 use github_ranked_core::validation::{parse_season, parse_theme, validate_username};
 use serde::Deserialize;
 
@@ -56,10 +56,19 @@ impl IntoResponse for SvgCard {
         (
             StatusCode::OK,
             [
-                (header::CONTENT_TYPE, HeaderValue::from_static("image/svg+xml; charset=utf-8")),
-                (header::CACHE_CONTROL, HeaderValue::from_str(&cache_control).expect("ascii")),
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("image/svg+xml; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_str(&cache_control).expect("ascii"),
+                ),
                 // GitHub's camo proxy will sniff otherwise.
-                (header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff")),
+                (
+                    header::X_CONTENT_TYPE_OPTIONS,
+                    HeaderValue::from_static("nosniff"),
+                ),
                 (
                     header::HeaderName::from_static("x-cache"),
                     HeaderValue::from_static(self.outcome.as_header()),
@@ -100,7 +109,12 @@ pub async fn badge(
 
     state.metrics.record_card_rendered();
 
-    Ok(SvgCard { svg, max_age: TTL_DEFAULT, outcome }.into_response())
+    Ok(SvgCard {
+        svg,
+        max_age: TTL_DEFAULT,
+        outcome,
+    }
+    .into_response())
 }
 
 /// `GET /api/v1/rank/{username}` — the same data as JSON, for the dashboard.

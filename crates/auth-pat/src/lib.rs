@@ -9,8 +9,8 @@
 //! token's 5,000 points per hour.
 
 use github_ranked_auth_core::{
-    now_unix, AuthError, AuthProvider, AuthResult, Credential, CredentialId, CredentialKind,
-    RateLimitStatus, GRAPHQL_POINTS_PER_HOUR,
+    AuthError, AuthProvider, AuthResult, Credential, CredentialId, CredentialKind,
+    GRAPHQL_POINTS_PER_HOUR, RateLimitStatus, now_unix,
 };
 use std::sync::Mutex;
 
@@ -153,7 +153,10 @@ impl AuthProvider for PatProvider {
             if Self::has_quota(&mut state[index], now) {
                 *next = (index + 1) % count;
                 return Ok(Credential::new(
-                    CredentialId { kind: CredentialKind::Pat, index },
+                    CredentialId {
+                        kind: CredentialKind::Pat,
+                        index,
+                    },
                     state[index].token.clone(),
                 ));
             }
@@ -170,7 +173,9 @@ impl AuthProvider for PatProvider {
     }
 
     fn record(&self, id: CredentialId, status: RateLimitStatus) {
-        let Some(index) = self.position(id) else { return };
+        let Some(index) = self.position(id) else {
+            return;
+        };
 
         let mut state = self.state.lock().expect("token pool poisoned");
         if let Some(entry) = state.get_mut(index) {
@@ -180,7 +185,9 @@ impl AuthProvider for PatProvider {
     }
 
     fn record_spend(&self, id: CredentialId, points: u32) {
-        let Some(index) = self.position(id) else { return };
+        let Some(index) = self.position(id) else {
+            return;
+        };
 
         let mut state = self.state.lock().expect("token pool poisoned");
         if let Some(entry) = state.get_mut(index) {

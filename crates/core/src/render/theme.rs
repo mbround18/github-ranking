@@ -112,7 +112,11 @@ fn parse_hex(colour: &str) -> Option<(f64, f64, f64)> {
     let (r, g, b) = match hex.len() {
         3 => {
             let mut chars = hex.chars();
-            (expand(chars.next()?)?, expand(chars.next()?)?, expand(chars.next()?)?)
+            (
+                expand(chars.next()?)?,
+                expand(chars.next()?)?,
+                expand(chars.next()?)?,
+            )
         }
         6 => (
             u8::from_str_radix(&hex[0..2], 16).ok()?,
@@ -122,7 +126,11 @@ fn parse_hex(colour: &str) -> Option<(f64, f64, f64)> {
         _ => return None,
     };
 
-    Some((f64::from(r) / 255.0, f64::from(g) / 255.0, f64::from(b) / 255.0))
+    Some((
+        f64::from(r) / 255.0,
+        f64::from(g) / 255.0,
+        f64::from(b) / 255.0,
+    ))
 }
 
 /// WCAG relative luminance.
@@ -157,7 +165,12 @@ fn mix(colour: (f64, f64, f64), target: f64, amount: f64) -> String {
         let blended = c + (target - c) * amount;
         (blended.clamp(0.0, 1.0) * 255.0).round() as u8
     };
-    format!("#{:02x}{:02x}{:02x}", channel(colour.0), channel(colour.1), channel(colour.2))
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        channel(colour.0),
+        channel(colour.1),
+        channel(colour.2)
+    )
 }
 
 /// WCAG AA floor for large text (the tier label).
@@ -180,7 +193,11 @@ pub fn ensure_contrast(background: &str, colour: &str, min_contrast: f64) -> Str
     };
 
     // Move toward black on a light surface, white on a dark one.
-    let target = if luminance(background) > 0.5 { 0.0 } else { 1.0 };
+    let target = if luminance(background) > 0.5 {
+        0.0
+    } else {
+        1.0
+    };
 
     for step in 1..=20 {
         let candidate = mix(base, target, f64::from(step) / 20.0);
@@ -265,8 +282,8 @@ mod tests {
     /// label was pale yellow on white.
     #[test]
     fn tier_labels_stay_legible_on_every_theme() {
-        use crate::ranking::constants::tier_colors;
         use crate::ranking::Tier;
+        use crate::ranking::constants::tier_colors;
 
         for theme in Theme::ALL {
             let background = palette(theme).background_primary;
@@ -303,7 +320,10 @@ mod tests {
 
         assert_ne!(chosen, accent, "should have been adjusted");
         assert!(contrast_ratio("#0d1117", &chosen) >= 3.0);
-        assert!(luminance(&chosen) > luminance(accent), "should be lightened");
+        assert!(
+            luminance(&chosen) > luminance(accent),
+            "should be lightened"
+        );
     }
 
     #[test]
@@ -324,8 +344,14 @@ mod tests {
 
     #[test]
     fn a_colour_that_already_passes_is_untouched() {
-        assert_eq!(ensure_contrast("#000000", "#ffffff", CONTRAST_BODY), "#ffffff");
-        assert_eq!(ensure_contrast("#ffffff", "#000000", CONTRAST_BODY), "#000000");
+        assert_eq!(
+            ensure_contrast("#000000", "#ffffff", CONTRAST_BODY),
+            "#ffffff"
+        );
+        assert_eq!(
+            ensure_contrast("#ffffff", "#000000", CONTRAST_BODY),
+            "#000000"
+        );
     }
 
     #[test]
@@ -343,8 +369,14 @@ mod tests {
     fn colours_are_valid_css() {
         for theme in Theme::ALL {
             let p = palette(theme);
-            for colour in [p.background_primary, p.background_secondary, p.border,
-                           p.text_primary, p.text_secondary, p.text_muted] {
+            for colour in [
+                p.background_primary,
+                p.background_secondary,
+                p.border,
+                p.text_primary,
+                p.text_secondary,
+                p.text_muted,
+            ] {
                 assert!(
                     colour == "transparent"
                         || (colour.starts_with('#') && (colour.len() == 7 || colour.len() == 4)),

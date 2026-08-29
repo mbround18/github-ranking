@@ -5,7 +5,7 @@
 //! every case here resolves before GitHub would be called.
 
 use axum::body::Body;
-use axum::http::{header, Request, StatusCode};
+use axum::http::{Request, StatusCode, header};
 use github_ranked::auth::{
     AuthError, AuthProvider, Credential, CredentialId, CredentialKind, RateLimitStatus,
 };
@@ -27,10 +27,15 @@ struct StubAuth {
 impl AuthProvider for StubAuth {
     async fn credential(&self) -> Result<Credential, AuthError> {
         if self.available == 0 {
-            return Err(AuthError::Exhausted { retry_after: Some(60) });
+            return Err(AuthError::Exhausted {
+                retry_after: Some(60),
+            });
         }
         Ok(Credential::new(
-            CredentialId { kind: CredentialKind::Pat, index: 0 },
+            CredentialId {
+                kind: CredentialKind::Pat,
+                index: 0,
+            },
             "stub-token",
         ))
     }
@@ -69,15 +74,26 @@ async fn get(path: &str) -> (StatusCode, axum::http::HeaderMap, String) {
 
     let status = response.status();
     let headers = response.headers().clone();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
 
-    (status, headers, String::from_utf8_lossy(&bytes).into_owned())
+    (
+        status,
+        headers,
+        String::from_utf8_lossy(&bytes).into_owned(),
+    )
 }
 
 #[tokio::test]
 async fn liveness_never_depends_on_anything_external() {
     let response = app(0)
-        .oneshot(Request::builder().uri("/healthz").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -86,15 +102,27 @@ async fn liveness_never_depends_on_anything_external() {
 #[tokio::test]
 async fn readiness_fails_when_no_credential_can_serve_a_miss() {
     let ready = app(1)
-        .oneshot(Request::builder().uri("/readyz").body(Body::empty()).unwrap())
-        .await.unwrap();
+        .oneshot(
+            Request::builder()
+                .uri("/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(ready.status(), StatusCode::OK);
 
     // Out of quota is a readiness problem, not a liveness one — restarting
     // would only throw away a warm cache.
     let degraded = app(0)
-        .oneshot(Request::builder().uri("/readyz").body(Body::empty()).unwrap())
-        .await.unwrap();
+        .oneshot(
+            Request::builder()
+                .uri("/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(degraded.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
@@ -102,7 +130,11 @@ async fn readiness_fails_when_no_credential_can_serve_a_miss() {
 async fn malformed_usernames_are_rejected_before_github_is_called() {
     for username in ["-leading", "trailing-", "a--b"] {
         let (status, _, body) = get(&format!("/api/rank/{username}")).await;
-        assert_eq!(status, StatusCode::BAD_REQUEST, "{username} should be rejected");
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "{username} should be rejected"
+        );
 
         let json: Value = serde_json::from_str(&body).unwrap();
         assert_eq!(json["error"], "ValidationError");
@@ -118,7 +150,12 @@ async fn out_of_range_seasons_are_rejected() {
 
     let json: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(json["error"], "ValidationError");
-    assert!(json["details"]["hint"].as_str().unwrap().contains("between"));
+    assert!(
+        json["details"]["hint"]
+            .as_str()
+            .unwrap()
+            .contains("between")
+    );
 }
 
 /// A bad theme must not break someone's README: it falls back and still
@@ -138,23 +175,37 @@ async fn every_response_carries_a_request_id() {
 #[tokio::test]
 async fn an_upstream_request_id_is_adopted() {
     let response = app(1)
-        .oneshot(Request::builder().uri("/healthz")
-            .header("x-request-id", "trace-from-the-proxy")
-            .body(Body::empty()).unwrap())
-        .await.unwrap();
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .header("x-request-id", "trace-from-the-proxy")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(response.headers()["x-request-id"], "trace-from-the-proxy");
 }
 
 #[tokio::test]
 async fn a_hostile_request_id_is_not_reflected() {
     let response = app(1)
-        .oneshot(Request::builder().uri("/healthz")
-            .header("x-request-id", "x".repeat(500))
-            .body(Body::empty()).unwrap())
-        .await.unwrap();
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .header("x-request-id", "x".repeat(500))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
 
     let id = response.headers()["x-request-id"].to_str().unwrap();
-    assert!(id.len() < 100, "oversized id was reflected: {} chars", id.len());
+    assert!(
+        id.len() < 100,
+        "oversized id was reflected: {} chars",
+        id.len()
+    );
 }
 
 #[tokio::test]
@@ -187,15 +238,23 @@ async fn unknown_api_routes_return_the_json_error_shape() {
     let json: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(json["error"], "NotFound");
     assert!(json["requestId"].as_str().is_some_and(|id| !id.is_empty()));
-    assert!(json["details"]["hint"].as_str().unwrap().contains("/api/rank/"));
+    assert!(
+        json["details"]["hint"]
+            .as_str()
+            .unwrap()
+            .contains("/api/rank/")
+    );
 }
 
 #[tokio::test]
 async fn the_legacy_badge_path_is_still_routed() {
     // Upstream rewrote /badge/{user} onto the rank handler; READMEs may use it.
     let (status, _, _) = get("/badge/-invalid").await;
-    assert_eq!(status, StatusCode::BAD_REQUEST,
-        "should reach the handler and fail validation, not 404");
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "should reach the handler and fail validation, not 404"
+    );
 }
 
 #[tokio::test]
@@ -223,17 +282,26 @@ async fn metrics_are_exposed_in_prometheus_format() {
     }
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    assert!(response.headers()[header::CONTENT_TYPE]
-        .to_str()
-        .unwrap()
-        .starts_with("text/plain"));
+    assert!(
+        response.headers()[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("text/plain")
+    );
 
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let body = String::from_utf8_lossy(&bytes);
 
     assert!(body.contains("github_ranked_requests_total 3"));
@@ -250,16 +318,28 @@ async fn scrapes_do_not_inflate_their_own_counters() {
     for _ in 0..3 {
         let _ = app
             .clone()
-            .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
     }
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let body = String::from_utf8_lossy(&bytes);
 
     assert!(body.contains("github_ranked_requests_total 0"));

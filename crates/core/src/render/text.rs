@@ -9,7 +9,7 @@
 //! It also removes the five Google Fonts requests the original made *on every
 //! render*, cache hits included.
 
-use super::glyphs::{Glyph, BOLD, DESCENDER, FIRST_CHAR, REGULAR, UNITS_PER_EM};
+use super::glyphs::{BOLD, DESCENDER, FIRST_CHAR, Glyph, REGULAR, UNITS_PER_EM};
 
 /// The two weights available. CSS weights collapse onto these.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,7 +51,9 @@ pub enum Anchor {
 /// silently missing character.
 fn glyph(ch: char, weight: Weight) -> &'static Glyph {
     let table = weight.table();
-    let index = (ch as u32).checked_sub(FIRST_CHAR as u32).map(|i| i as usize);
+    let index = (ch as u32)
+        .checked_sub(FIRST_CHAR as u32)
+        .map(|i| i as usize);
 
     match index.and_then(|i| table.get(i)) {
         Some(glyph) => glyph,
@@ -84,20 +86,59 @@ pub fn descender(size: f64) -> f64 {
     -DESCENDER * size / UNITS_PER_EM
 }
 
+/// How a run of text is drawn. Separated from *where* it is drawn so call
+/// sites read as "this text, at this point, in this style".
+#[derive(Debug, Clone, Copy)]
+pub struct TextStyle<'a> {
+    pub size: f64,
+    pub weight: Weight,
+    pub fill: &'a str,
+    /// In em, matching CSS `letter-spacing`.
+    pub letter_spacing: f64,
+    pub anchor: Anchor,
+}
+
+impl<'a> TextStyle<'a> {
+    /// A run with no letter spacing, anchored at its start.
+    pub fn new(size: f64, weight: Weight, fill: &'a str) -> Self {
+        Self {
+            size,
+            weight,
+            fill,
+            letter_spacing: 0.0,
+            anchor: Anchor::Start,
+        }
+    }
+
+    pub fn with_spacing(mut self, letter_spacing: f64) -> Self {
+        self.letter_spacing = letter_spacing;
+        self
+    }
+
+    pub fn anchored(mut self, anchor: Anchor) -> Self {
+        self.anchor = anchor;
+        self
+    }
+
+    /// Width of `text` in this style.
+    pub fn measure(&self, text: &str) -> f64 {
+        measure(text, self.size, self.weight, self.letter_spacing)
+    }
+}
+
 /// Render a run of text as SVG paths sitting on `baseline`.
 ///
 /// Glyphs are grouped under one transform so per-glyph path data stays in
 /// integral em units.
-pub fn text_svg(
-    text: &str,
-    x: f64,
-    baseline: f64,
-    size: f64,
-    weight: Weight,
-    fill: &str,
-    letter_spacing: f64,
-    anchor: Anchor,
-) -> String {
+pub fn text_svg(text: &str, x: f64, baseline: f64, style: &TextStyle<'_>) -> String {
+    let TextStyle {
+        size,
+        weight,
+        fill,
+        letter_spacing,
+        anchor,
+    } = *style;
+
     if text.is_empty() {
         return String::new();
     }
@@ -191,7 +232,18 @@ mod tests {
     fn empty_text_renders_nothing() {
         assert_eq!(measure("", 10.0, Weight::Regular, 0.0), 0.0);
         assert_eq!(
-            text_svg("", 0.0, 0.0, 10.0, Weight::Regular, "#fff", 0.0, Anchor::Start),
+            text_svg(
+                "",
+                0.0,
+                0.0,
+                &TextStyle {
+                    size: 10.0,
+                    weight: Weight::Regular,
+                    fill: "#fff",
+                    letter_spacing: 0.0,
+                    anchor: Anchor::Start
+                }
+            ),
             ""
         );
     }
@@ -216,8 +268,30 @@ mod tests {
         let size = 14.0;
         let width = measure("octocat", size, Weight::Regular, 0.0);
 
-        let start = text_svg("octocat", 100.0, 0.0, size, Weight::Regular, "#fff", 0.0, Anchor::Start);
-        let end = text_svg("octocat", 100.0, 0.0, size, Weight::Regular, "#fff", 0.0, Anchor::End);
+        let start = text_svg(
+            "octocat",
+            100.0,
+            0.0,
+            &TextStyle {
+                size,
+                weight: Weight::Regular,
+                fill: "#fff",
+                letter_spacing: 0.0,
+                anchor: Anchor::Start,
+            },
+        );
+        let end = text_svg(
+            "octocat",
+            100.0,
+            0.0,
+            &TextStyle {
+                size,
+                weight: Weight::Regular,
+                fill: "#fff",
+                letter_spacing: 0.0,
+                anchor: Anchor::End,
+            },
+        );
 
         assert!(start.contains("translate(100 0)"));
         assert!(end.contains(&format!("translate({} 0)", round(100.0 - width))));
@@ -225,7 +299,18 @@ mod tests {
 
     #[test]
     fn spaces_advance_without_drawing() {
-        let svg = text_svg("a b", 0.0, 0.0, 10.0, Weight::Regular, "#fff", 0.0, Anchor::Start);
+        let svg = text_svg(
+            "a b",
+            0.0,
+            0.0,
+            &TextStyle {
+                size: 10.0,
+                weight: Weight::Regular,
+                fill: "#fff",
+                letter_spacing: 0.0,
+                anchor: Anchor::Start,
+            },
+        );
         // Two visible glyphs, and the space contributes no path.
         assert_eq!(svg.matches("<path").count(), 2);
     }
@@ -233,7 +318,18 @@ mod tests {
     #[test]
     fn unknown_characters_fall_back_visibly() {
         // Emoji are outside the embedded set.
-        let svg = text_svg("\u{1F600}", 0.0, 0.0, 10.0, Weight::Regular, "#fff", 0.0, Anchor::Start);
+        let svg = text_svg(
+            "\u{1F600}",
+            0.0,
+            0.0,
+            &TextStyle {
+                size: 10.0,
+                weight: Weight::Regular,
+                fill: "#fff",
+                letter_spacing: 0.0,
+                anchor: Anchor::Start,
+            },
+        );
         assert!(svg.contains("<path"), "should substitute a visible glyph");
         assert_eq!(
             measure("\u{1F600}", 10.0, Weight::Regular, 0.0),
@@ -243,7 +339,18 @@ mod tests {
 
     #[test]
     fn output_is_well_formed() {
-        let svg = text_svg("Gold II", 10.0, 20.0, 14.0, Weight::Bold, "#fff", 0.0, Anchor::Start);
+        let svg = text_svg(
+            "Gold II",
+            10.0,
+            20.0,
+            &TextStyle {
+                size: 14.0,
+                weight: Weight::Bold,
+                fill: "#fff",
+                letter_spacing: 0.0,
+                anchor: Anchor::Start,
+            },
+        );
         assert_eq!(svg.matches("<g ").count(), 1);
         assert_eq!(svg.matches("</g>").count(), 1);
         assert!(svg.starts_with("<g transform="));

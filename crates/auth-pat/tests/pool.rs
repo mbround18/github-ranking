@@ -5,7 +5,7 @@
 //! be exercised directly.
 
 use github_ranked_auth_core::{
-    now_unix, AuthError, AuthProvider, CredentialId, CredentialKind, RateLimitStatus,
+    AuthError, AuthProvider, CredentialId, CredentialKind, RateLimitStatus, now_unix,
 };
 use github_ranked_auth_pat::PatProvider;
 use proptest::prelude::*;
@@ -15,11 +15,20 @@ fn pool(count: usize) -> PatProvider {
 }
 
 fn id(index: usize) -> CredentialId {
-    CredentialId { kind: CredentialKind::Pat, index }
+    CredentialId {
+        kind: CredentialKind::Pat,
+        index,
+    }
 }
 
 fn exhaust(pool: &PatProvider, index: usize, reset_in: i64) {
-    pool.record(id(index), RateLimitStatus { remaining: 0, reset_at: now_unix() + reset_in });
+    pool.record(
+        id(index),
+        RateLimitStatus {
+            remaining: 0,
+            reset_at: now_unix() + reset_in,
+        },
+    );
 }
 
 #[test]
@@ -73,7 +82,13 @@ async fn reports_retry_after_when_everything_is_spent() {
 #[tokio::test]
 async fn quota_recovers_once_the_window_passes() {
     let pool = pool(1);
-    pool.record(id(0), RateLimitStatus { remaining: 0, reset_at: now_unix() - 1 });
+    pool.record(
+        id(0),
+        RateLimitStatus {
+            remaining: 0,
+            reset_at: now_unix() - 1,
+        },
+    );
 
     assert!(pool.credential().await.is_ok());
     assert_eq!(pool.available(), 1);
@@ -84,7 +99,13 @@ async fn spending_estimates_quota_between_authoritative_answers() {
     let pool = pool(1);
 
     // GitHub reports the truth...
-    pool.record(id(0), RateLimitStatus { remaining: 2, reset_at: now_unix() + 3_600 });
+    pool.record(
+        id(0),
+        RateLimitStatus {
+            remaining: 2,
+            reset_at: now_unix() + 3_600,
+        },
+    );
     // ...and we estimate downward until it does so again.
     pool.record_spend(id(0), 1);
     pool.record_spend(id(0), 1);
@@ -101,10 +122,22 @@ async fn reports_for_an_unknown_credential_are_ignored() {
 
     // A stale id from another provider must not panic or corrupt state.
     pool.record(
-        CredentialId { kind: CredentialKind::Installation, index: 0 },
-        RateLimitStatus { remaining: 0, reset_at: now_unix() + 3_600 },
+        CredentialId {
+            kind: CredentialKind::Installation,
+            index: 0,
+        },
+        RateLimitStatus {
+            remaining: 0,
+            reset_at: now_unix() + 3_600,
+        },
     );
-    pool.record(id(99), RateLimitStatus { remaining: 0, reset_at: now_unix() + 3_600 });
+    pool.record(
+        id(99),
+        RateLimitStatus {
+            remaining: 0,
+            reset_at: now_unix() + 3_600,
+        },
+    );
 
     assert_eq!(pool.available(), 1);
     assert!(pool.credential().await.is_ok());

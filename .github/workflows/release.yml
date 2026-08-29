@@ -1,0 +1,101 @@
+# Release, built on paws (https://github.com/mbround18/paws).
+#
+# Version is computed from the merged PR's labels (major/minor/patch), tagged,
+# released, and the container image published to match. Nothing here runs on a
+# pull request — CI does that.
+name: release
+
+on:
+  push:
+    branches: [main]
+  # Cut a release without a labelled merge, e.g. for a docs-only fix.
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: Version increment
+        required: true
+        default: patch
+        type: choice
+        options: [patch, minor, major]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # semver infers from history, so a shallow clone would mislead it.
+          fetch-depth: 0
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      # Labels on the PR that produced this commit decide the bump; the manual
+      # path passes an explicit increment instead.
+      - name: compute and push the version
+        id: semver
+        run: |
+          if [ -n "${{ inputs.increment }}" ]; then
+            paws semver --increment "${{ inputs.increment }}" --push
+          else
+            paws semver --labels "${{ join(github.event.head_commit.labels, ',') }}" --push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  image:
+    name: publish image
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      # The stock image: production authentication requires a GitHub App. A
+      # single-tenant instance builds its own with
+      # --build-arg CARGO_FEATURES=pat-in-production.
+      - name: build and push
+        run: |
+          paws docker \
+            --image ghcr.io/${{ github.repository }} \
+            --version "${{ needs.version.outputs.version }}" \
+            --push --with-latest --tag-rollup
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
+
+  changelog:
+    name: changelog
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: mbround18/paws/actions/paws-up@main
+        with:
+          github-token: ${{ github.token }}
+
+      - run: paws changelog
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

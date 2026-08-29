@@ -140,6 +140,26 @@ fmt: ## Format Rust and frontend sources
 	cargo fmt --all
 	npm --prefix web exec -- prettier --write "web/src/**/*.{ts,tsx,css}"
 
+# --- CI, locally ----------------------------------------------------------
+#
+# The same paws pipelines .github/workflows/ci.yml runs, so a failure can be
+# reproduced without pushing. Needs docker; paws installs dagger itself.
+
+.PHONY: ci
+ci: ci-rust ci-web ## Run the paws CI pipelines locally
+
+.PHONY: ci-rust
+ci-rust: ## paws: fmt, clippy, build and test the workspace
+	paws ci --toolchain rust
+
+.PHONY: ci-web
+ci-web: $(WASM_OUT) ## paws: build, test and lint the frontend
+	cd web && paws ci --toolchain node
+
+.PHONY: ci-docker
+ci-docker: ## paws: build the container image the way CI does
+	paws docker --image ghcr.io/$${GITHUB_REPOSITORY:-mbround18/github-ranking}
+
 # --- container and cluster ------------------------------------------------
 
 .PHONY: docker

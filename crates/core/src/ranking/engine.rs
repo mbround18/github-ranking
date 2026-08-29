@@ -98,7 +98,7 @@ pub fn calculate_gp(elo: f64, tier: Tier, division: Option<Division>) -> f64 {
     }
 
     let gp = (position_in_division / division_size) * (MAX_GP + 1.0);
-    gp.floor().min(MAX_GP).max(MIN_GP)
+    gp.floor().clamp(MIN_GP, MAX_GP)
 }
 
 /// Abramowitz & Stegun 7.1.26 approximation of the error function.

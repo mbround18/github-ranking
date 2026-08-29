@@ -12,6 +12,7 @@ import init, {
   isValidUsername as wasmIsValidUsername,
   nextTierAt as wasmNextTierAt,
   renderCard as wasmRenderCard,
+  seasonalDecay as wasmSeasonalDecay,
   themeNames as wasmThemeNames,
 } from "@/wasm/github_ranked";
 import type { AggregatedStats, RankPayload, RankResult } from "./types";
@@ -41,6 +42,16 @@ export function calculateRank(stats: AggregatedStats): RankResult {
 /** The Elo needed to reach the next tier, or undefined at Challenger. */
 export function nextTierAt(elo: number): number | undefined {
   return wasmNextTierAt(elo);
+}
+
+/**
+ * The weight a contribution year still carries.
+ *
+ * From the engine rather than reimplemented here, so the weights shown next to
+ * the raw counts cannot drift from the scores the server computes.
+ */
+export function seasonalDecay(year: number, currentYear: number): number {
+  return wasmSeasonalDecay(year, currentYear);
 }
 
 /** Validate before spending a round trip. The server validates again anyway. */

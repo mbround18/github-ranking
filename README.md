@@ -52,6 +52,20 @@ without printing it.
 > browsers refuse to connect to 10080 (`ERR_UNSAFE_PORT`), which is the only
 > blocked port in that range.
 
+## CI
+
+Built on [paws](https://github.com/mbround18/paws), which drives the
+single-ecosystem work — Rust build/test/coverage, the Vite frontend, and the
+container image. Reproduce a CI failure locally with `make ci`.
+
+The end-to-end job runs natively rather than through paws, because it needs
+artefacts from both ecosystems in one place plus a running binary, which is not
+what a per-toolchain pipeline is for.
+
+Two jobs guard properties rather than correctness: the feature matrix asserts a
+stock build does not link the PAT provider at all, and the manifest job asserts
+the Secret template never gains a real credential.
+
 ## Self-hosting
 
 Production auth is a compile-time choice. The PAT provider is a separate crate

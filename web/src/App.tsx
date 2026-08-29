@@ -234,7 +234,7 @@ function Result({
         </TabsContent>
 
         <TabsContent value="seasons" className="mt-6">
-          <SeasonBreakdown yearly={payload.yearly} />
+          <SeasonBreakdown yearly={payload.yearly} engineReady={engineReady} />
         </TabsContent>
 
         <TabsContent value="embed" className="mt-6">

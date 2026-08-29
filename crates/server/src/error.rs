@@ -4,10 +4,10 @@
 //! They are part of the public contract — anything already consuming the API
 //! should not be able to tell the backend was replaced.
 
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {

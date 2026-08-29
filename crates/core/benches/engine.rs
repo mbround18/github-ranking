@@ -5,10 +5,10 @@
 //! grow accidentally expensive — the percentile calculation involves `exp`, and
 //! a "small" change there is easy to miss.
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use github_ranked_core::ranking::{
-    calculate_elo, calculate_percentile, calculate_rank, calculate_wpi, calculate_z_score,
-    get_division, get_tier, AggregatedStats,
+    AggregatedStats, calculate_elo, calculate_percentile, calculate_rank, calculate_wpi,
+    calculate_z_score, get_division, get_tier,
 };
 use std::hint::black_box;
 
@@ -42,10 +42,14 @@ fn bench_stages(c: &mut Criterion) {
     let input = stats(1.0);
 
     group.bench_function("wpi", |b| b.iter(|| calculate_wpi(black_box(&input))));
-    group.bench_function("z_score", |b| b.iter(|| calculate_z_score(black_box(48_210.0))));
+    group.bench_function("z_score", |b| {
+        b.iter(|| calculate_z_score(black_box(48_210.0)))
+    });
     group.bench_function("elo", |b| b.iter(|| calculate_elo(black_box(2.85))));
     // The erf approximation — the only transcendental in the hot path.
-    group.bench_function("percentile", |b| b.iter(|| calculate_percentile(black_box(2.85))));
+    group.bench_function("percentile", |b| {
+        b.iter(|| calculate_percentile(black_box(2.85)))
+    });
     group.bench_function("tier", |b| b.iter(|| get_tier(black_box(2274.0))));
     group.bench_function("division", |b| {
         let tier = get_tier(2274.0);

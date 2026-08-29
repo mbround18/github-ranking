@@ -14,8 +14,8 @@ mod sqlite;
 pub use sqlite::SqliteStore;
 
 use crate::error::{ApiError, ApiResult};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -283,9 +283,10 @@ fn clone_error(error: &ApiError) -> ApiError {
         ApiError::UserNotFound { username } => ApiError::UserNotFound {
             username: username.clone(),
         },
-        ApiError::RateLimit { message, retry_after } => {
-            ApiError::rate_limited(message.clone(), *retry_after)
-        }
+        ApiError::RateLimit {
+            message,
+            retry_after,
+        } => ApiError::rate_limited(message.clone(), *retry_after),
         ApiError::Validation { message, details } => ApiError::Validation {
             message: message.clone(),
             details: details.clone(),
@@ -301,10 +302,19 @@ mod tests {
 
     #[test]
     fn rank_keys_are_stable_and_scoped() {
-        assert_eq!(rank_key("octocat", None, SCOPE_PUBLIC), "rank:octocat:all:public");
-        assert_eq!(rank_key("octocat", Some(2024), SCOPE_PUBLIC), "rank:octocat:2024:public");
+        assert_eq!(
+            rank_key("octocat", None, SCOPE_PUBLIC),
+            "rank:octocat:all:public"
+        );
+        assert_eq!(
+            rank_key("octocat", Some(2024), SCOPE_PUBLIC),
+            "rank:octocat:2024:public"
+        );
         // Usernames are case-insensitive, so keys must not fragment by case.
-        assert_eq!(rank_key("  OctoCat ", None, SCOPE_PUBLIC), "rank:octocat:all:public");
+        assert_eq!(
+            rank_key("  OctoCat ", None, SCOPE_PUBLIC),
+            "rank:octocat:all:public"
+        );
         assert_eq!(year_key("OctoCat", 2024), "year:octocat:2024");
     }
 
@@ -457,7 +467,10 @@ mod tests {
         let new = Cache::new(64, Some(store));
         let value: NewShape = new
             .get_or_insert_with("k", 600, || async {
-                Ok(NewShape { value: "recomputed".into(), added_in_this_release: 1 })
+                Ok(NewShape {
+                    value: "recomputed".into(),
+                    added_in_this_release: 1,
+                })
             })
             .await
             .expect("should recompute, not fail");

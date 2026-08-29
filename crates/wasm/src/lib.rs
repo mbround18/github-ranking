@@ -8,8 +8,8 @@
 //! credentials stay server-side — the browser is handed stats and does maths on
 //! them.
 
-use github_ranked_core::render::card::{render_card, CardInput};
 use github_ranked_core::ranking;
+use github_ranked_core::render::card::{CardInput, render_card};
 use github_ranked_core::validation;
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -74,6 +74,16 @@ pub fn next_tier_at(elo: f64) -> Option<f64> {
     let tier = ranking::get_tier(elo);
     let max = ranking::constants::tier_range(tier).max;
     max.is_finite().then_some(max)
+}
+
+/// The weight a contribution year still carries, given the current season.
+///
+/// Exposed rather than reimplemented in TypeScript: the dashboard shows these
+/// weights beside the raw counts, and a copy would silently disagree with the
+/// scores the server computes the moment the schedule changed.
+#[wasm_bindgen(js_name = seasonalDecay)]
+pub fn seasonal_decay(year: i32, current_year: i32) -> f64 {
+    github_ranked_core::ranking::constants::seasonal_decay_multiplier(year, current_year)
 }
 
 /// Validate a username client-side, so the UI can reject a typo before it costs

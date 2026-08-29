@@ -1,7 +1,9 @@
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+// From vitest/config rather than vite: it re-exports defineConfig with the
+// `test` key typed, which plain vite's does not accept.
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -27,5 +29,11 @@ export default defineConfig({
   build: {
     // Served by the Rust binary from WEB_ROOT.
     outDir: "dist",
+  },
+  test: {
+    // This is browser code — badgeUrl reads window.location.origin — so it is
+    // tested in a browser-like environment rather than bare Node.
+    environment: "jsdom",
+    include: ["src/**/*.test.ts"],
   },
 });

@@ -5,14 +5,14 @@
 //! order matters — rounding after summing gives different totals, and therefore
 //! different ranks.
 
-use super::queries::{self, PROFILE_QUERY};
 use super::GitHubClient;
+use super::queries::{self, PROFILE_QUERY};
 use crate::error::{ApiError, ApiResult};
+use github_ranked_core::AggregatedStats;
 use github_ranked_core::ranking::constants::seasonal_decay_multiplier;
 use github_ranked_core::ranking::js_round;
-use github_ranked_core::AggregatedStats;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// One year of raw, undecayed contributions.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -71,7 +71,13 @@ pub async fn fetch_profile(client: &GitHubClient, username: &str) -> ApiResult<P
     let contribution_years = user
         .pointer("/contributionsCollection/contributionYears")
         .and_then(Value::as_array)
-        .map(|years| years.iter().filter_map(Value::as_i64).map(|y| y as i32).collect())
+        .map(|years| {
+            years
+                .iter()
+                .filter_map(Value::as_i64)
+                .map(|y| y as i32)
+                .collect()
+        })
         .unwrap_or_default();
 
     // The query asks for the 100 most-starred repos; anything beyond that has
@@ -88,7 +94,11 @@ pub async fn fetch_profile(client: &GitHubClient, username: &str) -> ApiResult<P
         .unwrap_or(0.0);
 
     Ok(Profile {
-        login: user.get("login").and_then(Value::as_str).unwrap_or(username).to_string(),
+        login: user
+            .get("login")
+            .and_then(Value::as_str)
+            .unwrap_or(username)
+            .to_string(),
         name: user.get("name").and_then(Value::as_str).map(str::to_string),
         contribution_years,
         total_stars,
@@ -115,12 +125,12 @@ pub async fn fetch_yearly_stats(
             .await
             .map_err(|error| name_not_found(error, username))?;
 
-        let user = data
-            .get("user")
-            .filter(|u| !u.is_null())
-            .ok_or_else(|| ApiError::UserNotFound {
-                username: username.to_string(),
-            })?;
+        let user =
+            data.get("user")
+                .filter(|u| !u.is_null())
+                .ok_or_else(|| ApiError::UserNotFound {
+                    username: username.to_string(),
+                })?;
 
         for &year in batch {
             // A year GitHub declined to return is skipped rather than counted
@@ -221,11 +231,22 @@ mod tests {
     use super::*;
 
     fn year(year: i32, commits: f64, prs: f64, reviews: f64, issues: f64) -> YearlyStats {
-        YearlyStats { year, commits, prs, reviews, issues, private_contributions: 0.0 }
+        YearlyStats {
+            year,
+            commits,
+            prs,
+            reviews,
+            issues,
+            private_contributions: 0.0,
+        }
     }
 
     fn profile() -> Profile {
-        Profile { total_stars: 250.0, total_followers: 10.0, ..Default::default() }
+        Profile {
+            total_stars: 250.0,
+            total_followers: 10.0,
+            ..Default::default()
+        }
     }
 
     #[test]

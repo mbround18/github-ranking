@@ -5,12 +5,13 @@ pub mod health;
 pub mod request_id;
 
 use crate::state::AppState;
-use axum::extract::DefaultBodyLimit;
-use axum::http::{header, HeaderValue, Method};
-use axum::routing::get;
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
+use axum::http::{HeaderValue, Method, header};
+use axum::routing::get;
 use std::time::Duration;
 use tower::ServiceBuilder;
+use tower_http::LatencyUnit;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
@@ -19,7 +20,6 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
-use tower_http::LatencyUnit;
 
 /// Build the application router with its full middleware stack.
 ///
@@ -63,10 +63,7 @@ pub fn router(state: AppState) -> Router {
         // A panic in one handler must not take down the process.
         .layer(CatchPanicLayer::new())
         .layer(axum::middleware::from_fn(request_id::propagate))
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            observe,
-        ))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), observe))
         // Badges are embedded cross-origin by design.
         .layer(
             CorsLayer::new()

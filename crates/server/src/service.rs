@@ -6,13 +6,13 @@
 use crate::cache::{self, SCOPE_PUBLIC, TTL_DEFAULT};
 use crate::config::current_year;
 use crate::error::ApiResult;
-use crate::github::aggregator::{aggregate_all_time, YearlyStats};
+use crate::github::aggregator::{YearlyStats, aggregate_all_time};
 use crate::state::AppState;
 use github_ranked_core::ranking::calculate_rank;
 use github_ranked_core::{AggregatedStats, RankResult};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Whether a rank came from cache or had to be computed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,11 +92,7 @@ pub async fn rank_user(
     Ok((payload, outcome))
 }
 
-async fn compute(
-    state: &AppState,
-    username: &str,
-    season: Option<i32>,
-) -> ApiResult<RankPayload> {
+async fn compute(state: &AppState, username: &str, season: Option<i32>) -> ApiResult<RankPayload> {
     // An all-time payload already carries every year, so a season can be
     // derived from it for free. Without this a `?season=` request refetched the
     // whole profile from GitHub even when the all-time rank was sitting in
@@ -174,11 +170,21 @@ mod tests {
     use github_ranked_core::ranking::Tier;
 
     fn year(year: i32, prs: f64, commits: f64) -> YearlyStats {
-        YearlyStats { year, commits, prs, reviews: 0.0, issues: 0.0, private_contributions: 0.0 }
+        YearlyStats {
+            year,
+            commits,
+            prs,
+            reviews: 0.0,
+            issues: 0.0,
+            private_contributions: 0.0,
+        }
     }
 
     fn all_time() -> RankPayload {
-        let stats = AggregatedStats { total_stars: 500.0, ..Default::default() };
+        let stats = AggregatedStats {
+            total_stars: 500.0,
+            ..Default::default()
+        };
         RankPayload {
             rank: calculate_rank(&stats),
             username: "octocat".into(),

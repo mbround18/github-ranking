@@ -15,9 +15,9 @@
 //! on a boundary where it could matter.
 
 use github_ranked_core::ranking::{
-    calculate_elo, calculate_gp, calculate_percentile, calculate_rank, calculate_z_score,
-    constants::seasonal_decay_multiplier, get_division, get_tier, AggregatedStats, Division,
-    RankResult, Tier,
+    AggregatedStats, Division, RankResult, Tier, calculate_elo, calculate_gp, calculate_percentile,
+    calculate_rank, calculate_z_score, constants::seasonal_decay_multiplier, get_division,
+    get_tier,
 };
 use serde::Deserialize;
 
@@ -86,7 +86,12 @@ fn calculate_rank_matches_upstream() {
         "{} of {} rank cases diverged:\n{}",
         failures.len(),
         cases.len(),
-        failures.iter().take(10).cloned().collect::<Vec<_>>().join("\n")
+        failures
+            .iter()
+            .take(10)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
     eprintln!(
@@ -110,7 +115,10 @@ fn rank_fields_that_users_see_are_bit_exact() {
         })
         .count();
 
-    assert_eq!(diverged, 0, "{diverged} cases had elo/percentile drift from libm");
+    assert_eq!(
+        diverged, 0,
+        "{diverged} cases had elo/percentile drift from libm"
+    );
 }
 
 #[test]
@@ -148,7 +156,11 @@ fn percentile_and_elo_match_upstream_across_z_range() {
     let sweep: Vec<(f64, f64, f64)> = fixture("zscore_sweep.json");
 
     for (z, want_percentile, want_elo) in sweep {
-        assert_eq!(calculate_percentile(z), want_percentile, "percentile at z={z}");
+        assert_eq!(
+            calculate_percentile(z),
+            want_percentile,
+            "percentile at z={z}"
+        );
         assert_eq!(calculate_elo(z), want_elo, "elo at z={z}");
     }
 }
@@ -160,7 +172,10 @@ fn z_score_matches_upstream_across_magnitudes() {
     let mut worst = 0u64;
     for (wpi, want) in sweep {
         let ulps = ulps_apart(calculate_z_score(wpi), want);
-        assert!(ulps <= MAX_Z_ULPS, "z-score at wpi={wpi} off by {ulps} ulps");
+        assert!(
+            ulps <= MAX_Z_ULPS,
+            "z-score at wpi={wpi} off by {ulps} ulps"
+        );
         worst = worst.max(ulps);
     }
     eprintln!("worst z-score divergence across magnitudes: {worst} ulp(s)");

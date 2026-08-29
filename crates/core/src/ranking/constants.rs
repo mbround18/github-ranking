@@ -99,9 +99,4 @@ pub fn seasonal_decay_multiplier(year: i32, current_year: i32) -> f64 {
 }
 
 /// All four divisions, lowest first.
-pub const DIVISIONS_ASC: [Division; 4] = [
-    Division::IV,
-    Division::III,
-    Division::II,
-    Division::I,
-];
+pub const DIVISIONS_ASC: [Division; 4] = [Division::IV, Division::III, Division::II, Division::I];

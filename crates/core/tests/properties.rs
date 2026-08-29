@@ -6,17 +6,23 @@
 
 use github_ranked_core::ranking::constants::tier_range;
 use github_ranked_core::ranking::{
-    calculate_gp, calculate_percentile, calculate_rank, calculate_wpi, calculate_z_score,
-    get_division, get_tier, AggregatedStats, Division, RankResult, Tier,
+    AggregatedStats, Division, RankResult, Tier, calculate_gp, calculate_percentile,
+    calculate_rank, calculate_wpi, calculate_z_score, get_division, get_tier,
 };
-use github_ranked_core::render::card::{render_card, thousands, CardInput};
-use github_ranked_core::render::text::{measure, text_svg, Anchor, Weight};
-use github_ranked_core::validation::{is_valid_username, Theme};
+use github_ranked_core::render::card::{CardInput, render_card, thousands};
+use github_ranked_core::render::text::{Anchor, TextStyle, Weight, measure, text_svg};
+use github_ranked_core::validation::{Theme, is_valid_username};
 use proptest::prelude::*;
 
 /// Plausible contribution counts, spanning empty accounts to extreme outliers.
 fn stats_strategy() -> impl Strategy<Value = AggregatedStats> {
-    (0.0..500_000.0f64, 0.0..500_000.0f64, 0.0..500_000.0f64, 0.0..2_000_000.0f64, 0.0..5_000_000.0f64)
+    (
+        0.0..500_000.0f64,
+        0.0..500_000.0f64,
+        0.0..500_000.0f64,
+        0.0..2_000_000.0f64,
+        0.0..5_000_000.0f64,
+    )
         .prop_map(|(prs, reviews, issues, commits, stars)| AggregatedStats {
             total_merged_prs: prs,
             total_code_reviews: reviews,
@@ -176,7 +182,7 @@ proptest! {
     /// markup.
     #[test]
     fn text_rendering_is_always_well_formed(text in "[ -~]{0,60}", size in 4.0..60.0f64) {
-        let svg = text_svg(&text, 0.0, 0.0, size, Weight::Bold, "#fff", 0.0, Anchor::Start);
+        let svg = text_svg(&text, 0.0, 0.0, &TextStyle { size, weight: Weight::Bold, fill: "#fff", letter_spacing: 0.0, anchor: Anchor::Start });
 
         prop_assert_eq!(svg.matches("<g ").count(), svg.matches("</g>").count());
         if !text.is_empty() {

@@ -4,10 +4,10 @@
 //! the browser on every theme switch. It is also where dropping Satori was
 //! supposed to pay off, so it is worth measuring rather than assuming.
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use github_ranked_core::ranking::{calculate_rank, AggregatedStats, Division, RankResult, Tier};
-use github_ranked_core::render::card::{render_card, CardInput};
-use github_ranked_core::render::text::{measure, text_svg, Anchor, Weight};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use github_ranked_core::ranking::{AggregatedStats, Division, RankResult, Tier, calculate_rank};
+use github_ranked_core::render::card::{CardInput, render_card};
+use github_ranked_core::render::text::{Anchor, TextStyle, Weight, measure, text_svg};
 use github_ranked_core::validation::Theme;
 use std::hint::black_box;
 
@@ -28,8 +28,12 @@ fn bench_card(c: &mut Criterion) {
     let mut group = c.benchmark_group("render_card");
 
     let input = CardInput {
-        username: "octocat", rank: &rank, stats: &stats,
-        theme: Theme::Default, season: None, current_year: 2026,
+        username: "octocat",
+        rank: &rank,
+        stats: &stats,
+        theme: Theme::Default,
+        season: None,
+        current_year: 2026,
     };
 
     // Report bytes/sec so the cost of the SVG's size is visible alongside time.
@@ -39,8 +43,12 @@ fn bench_card(c: &mut Criterion) {
     // Themes differ in gradient work; confirm none is an outlier.
     for theme in [Theme::Minimal, Theme::Cyberpunk, Theme::Light] {
         let input = CardInput {
-            username: "octocat", rank: &rank, stats: &stats,
-            theme, season: None, current_year: 2026,
+            username: "octocat",
+            rank: &rank,
+            stats: &stats,
+            theme,
+            season: None,
+            current_year: 2026,
         };
         group.bench_with_input(
             BenchmarkId::from_parameter(theme.as_str()),
@@ -61,13 +69,21 @@ fn bench_tiers(c: &mut Criterion) {
         let rank = RankResult {
             tier,
             division: tier.has_divisions().then_some(Division::II),
-            elo: 2274, gp: 74, percentile: 99.1, wpi: 48210.0, z_score: 2.85,
+            elo: 2274,
+            gp: 74,
+            percentile: 99.1,
+            wpi: 48210.0,
+            z_score: 2.85,
         };
         group.bench_function(BenchmarkId::from_parameter(tier.as_str()), |b| {
             b.iter(|| {
                 render_card(black_box(&CardInput {
-                    username: "octocat", rank: &rank, stats: &stats,
-                    theme: Theme::Default, season: None, current_year: 2026,
+                    username: "octocat",
+                    rank: &rank,
+                    stats: &stats,
+                    theme: Theme::Default,
+                    season: None,
+                    current_year: 2026,
                 }))
             })
         });
@@ -84,7 +100,18 @@ fn bench_text(c: &mut Criterion) {
     });
     group.bench_function("outline", |b| {
         b.iter(|| {
-            text_svg(black_box("GRANDMASTER"), 0.0, 0.0, 28.0, Weight::Bold, "#fff", -0.02, Anchor::Start)
+            text_svg(
+                black_box("GRANDMASTER"),
+                0.0,
+                0.0,
+                &TextStyle {
+                    size: 28.0,
+                    weight: Weight::Bold,
+                    fill: "#fff",
+                    letter_spacing: -0.02,
+                    anchor: Anchor::Start,
+                },
+            )
         })
     });
 

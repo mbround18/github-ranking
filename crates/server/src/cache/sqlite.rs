@@ -78,7 +78,8 @@ impl SqliteStore {
         conn.execute("DELETE FROM cache_entries WHERE expires_at <= ?1", (now,))
     }
 
-    pub fn len(&self) -> rusqlite::Result<i64> {
+    /// Number of rows currently stored, expired ones included.
+    pub fn count(&self) -> rusqlite::Result<i64> {
         let conn = self.conn.lock().expect("cache mutex poisoned");
         conn.query_row("SELECT COUNT(*) FROM cache_entries", (), |row| row.get(0))
     }
@@ -92,10 +93,15 @@ mod tests {
     fn round_trips_and_honours_expiry() {
         let store = SqliteStore::in_memory().unwrap();
 
-        store.set("rank:octocat:all:default", "{\"tier\":\"Gold\"}", 100).unwrap();
+        store
+            .set("rank:octocat:all:default", "{\"tier\":\"Gold\"}", 100)
+            .unwrap();
 
         assert_eq!(
-            store.get("rank:octocat:all:default", 50).unwrap().as_deref(),
+            store
+                .get("rank:octocat:all:default", 50)
+                .unwrap()
+                .as_deref(),
             Some("{\"tier\":\"Gold\"}")
         );
         // At and past the expiry the entry is invisible.
@@ -111,7 +117,7 @@ mod tests {
         store.set("k", "second", 200).unwrap();
 
         assert_eq!(store.get("k", 50).unwrap().as_deref(), Some("second"));
-        assert_eq!(store.len().unwrap(), 1);
+        assert_eq!(store.count().unwrap(), 1);
     }
 
     #[test]
@@ -123,6 +129,6 @@ mod tests {
 
         assert_eq!(store.purge_expired(500).unwrap(), 1);
         assert_eq!(store.get("fresh", 500).unwrap().as_deref(), Some("y"));
-        assert_eq!(store.len().unwrap(), 1);
+        assert_eq!(store.count().unwrap(), 1);
     }
 }

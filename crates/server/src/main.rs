@@ -7,9 +7,9 @@ use github_ranked::routes::router;
 use github_ranked::state::AppState;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
 
 /// How often expired rows are swept from the durable cache.
 const PURGE_INTERVAL: Duration = Duration::from_secs(3_600);
@@ -76,9 +76,7 @@ async fn run() -> ApiResult<()> {
 /// Which providers exist is a compile-time property. Only the PAT provider is
 /// implemented so far; the GitHub App providers will slot in here as additional
 /// arms without touching anything downstream of `AuthProvider`.
-fn build_auth_provider(
-    config: &github_ranked::config::Config,
-) -> ApiResult<Arc<dyn AuthProvider>> {
+fn build_auth_provider(config: &github_ranked::config::Config) -> ApiResult<Arc<dyn AuthProvider>> {
     if !auth::any_provider_available() {
         return Err(github_ranked::error::ApiError::Internal(
             "this build has no authentication provider compiled in; rebuild with \
@@ -111,7 +109,9 @@ fn init_tracing(environment: github_ranked::config::Environment) {
 
     // Structured logs in production for ingestion; readable ones locally.
     if environment.is_production() {
-        registry.with(tracing_subscriber::fmt::layer().json()).init();
+        registry
+            .with(tracing_subscriber::fmt::layer().json())
+            .init();
     } else {
         registry.with(tracing_subscriber::fmt::layer()).init();
     }
