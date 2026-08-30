@@ -48,20 +48,14 @@ jobs:
       # path passes an explicit increment instead.
       - name: compute and push the version
         id: semver
+        # paws writes `version` to $GITHUB_OUTPUT itself, so this no longer
+        # scrapes stdout — which broke on any extra line printed.
         run: |
           if [ -n "${{ inputs.increment }}" ]; then
-            version="$(paws semver --increment "${{ inputs.increment }}" --push | tail -n1)"
+            paws semver --increment "${{ inputs.increment }}" --push
           else
-            version="$(paws semver --labels "${{ join(github.event.head_commit.labels, ',') }}" --push | tail -n1)"
+            paws semver --labels "${{ join(github.event.head_commit.labels, ',') }}" --push
           fi
-
-          if [ -z "$version" ]; then
-            echo "::error::paws semver produced no version"
-            exit 1
-          fi
-
-          echo "computed $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -80,22 +74,15 @@ jobs:
       # The stock image: production authentication requires a GitHub App. A
       # single-tenant instance builds its own with
       # --build-arg CARGO_FEATURES=pat-in-production.
-      #
-      # paws targets docker.io unless --registries names another, even when
-      # --image is fully qualified, and it reads the GHCR password from
-      # $GHCR_TOKEN rather than $GITHUB_TOKEN. Without both it skips the
-      # publish and still reports success.
       - name: build and push
         run: |
           paws docker \
-            --image ${{ github.repository }} \
-            --registries ghcr.io \
+            --image ghcr.io/${{ github.repository }} \
             --ghcr-username ${{ github.actor }} \
             --version "${{ needs.version.outputs.version }}" \
             --push --with-latest --tag-rollup
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ github.token }}
 
       # paws gates --with-latest and --tag-rollup on GITHUB_REF naming a version
       # tag, and this job runs on a branch push. Overriding GITHUB_REF is not an

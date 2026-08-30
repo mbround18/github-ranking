@@ -101,9 +101,10 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      # --source rather than working-directory: paws resolves it and provisions
+      # for the project being built, not for whatever is at the repo root.
       - name: build and test the frontend
-        working-directory: web
-        run: paws ci --toolchain node
+        run: paws ci --toolchain node --source web
 
   e2e:
     name: end-to-end
@@ -211,16 +212,10 @@ jobs:
       # credentials in production — a self-hosted instance builds its own with
       # --build-arg CARGO_FEATURES=pat-in-production.
       - name: build the image
-      # paws targets docker.io unless --registries names another, even when
-      # --image is fully qualified, and it reads the GHCR password from
-      # $GHCR_TOKEN rather than $GITHUB_TOKEN. Without both, it skips the
-      # publish and still reports success.
         run: |
           paws docker \
-            --image ${{ github.repository }} \
-            --registries ghcr.io \
+            --image ghcr.io/${{ github.repository }} \
             --ghcr-username ${{ github.actor }} \
             --tag-sha --tag-pr
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ github.token }}
